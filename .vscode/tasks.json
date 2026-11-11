@@ -8,10 +8,8 @@
             "type": "shell",
             "command": "cmake",
             "args": [
-                "-S",
-                "..",
-                "-B",
-                "."
+                "-S", "..",
+                "-B", "."
             ],
             "options": {
                 "cwd": "${workspaceFolder}/build"
