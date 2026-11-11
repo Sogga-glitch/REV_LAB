@@ -57,7 +57,7 @@ function(data_to_c
 			"$<TARGET_FILE:datatoc>" --src ${file_from} --bin ${file_to}
 		DEPENDS
 			${file_from}
-			rose::source::datatoc
+			revlab::source::datatoc
 	)
 	
 	set_source_files_properties(${file_to} PROPERTIES GENERATED TRUE)
@@ -87,7 +87,7 @@ function(data_to_c_simple
 			"$<TARGET_FILE:datatoc>" --src ${_file_from} --bin ${_file_to}
 		DEPENDS
 			${_file_from}
-			rose::source::datatoc
+			revlab::source::datatoc
 	)
 
 	set_source_files_properties(${_file_to} PROPERTIES GENERATED TRUE)
