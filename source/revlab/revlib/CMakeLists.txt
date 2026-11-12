@@ -21,10 +21,18 @@ set(INC_SYS
 # Define Source Files
 
 set(SRC
+	LIB_math_matrix_types.hh
+	LIB_math_matrix.hh
+	LIB_math_vector_types.hh
 	LIB_math_vector.hh
 	LIB_math.hh
+	LIB_units.hh
+	LIB_utildefines.hh
+	LIB_utility_mixins.hh
 
+	intern/math_matrix.cc
 	intern/math_vector.cc
+	intern/units_inline.cc
 
 )
 
@@ -67,7 +75,9 @@ set(INC_SYS
 # Define Source Files (Test)
 
 set(TEST
+	tests/math_matrix_types.cc
 	tests/math_vector_types.cc
+	tests/units.cc
 
 )
 

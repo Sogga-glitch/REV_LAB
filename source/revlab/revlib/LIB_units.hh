@@ -1,0 +1,28 @@
+#pragma once
+
+namespace revlab {
+
+namespace units {
+
+/* -------------------------------------------------------------------- */
+/** \name Distance
+ * \{ */
+
+extern constexpr float kilometer = 1e+3f;
+extern constexpr float meter = 1.0f;
+extern constexpr float centimeter = 1e-2f;
+extern constexpr float millimiter = 1e-3f;
+
+extern constexpr float inch = centimeter * 2.54f;
+extern constexpr float foot = inch * 12.0f;
+
+/** \} */
+
+}  // namespace units
+
+}  // namespace revlab
+
+/** Convert a distance value into meters based on the input unit */
+inline constexpr float LIB_unit_distance(float value, const float unit);
+
+#include "intern/units_inline.cc"
