@@ -1,3 +1,5 @@
+#include "LIB_math_matrix.hh"
+
 #include "KER_force_generator.hh"
 #include "KER_physics.hh"
 #include "KER_rigid_body.hh"
@@ -8,20 +10,43 @@
 /** \name Physics World Rigid Body Store
  * \{ */
 
-template<typename T, typename... Args> PhysicsRigidBodyStore *PhysicsRigidBodyStore::add_force_generator(Args... args) {
-	force_generators.push_back(new T(args));
-	return this;
+/**
+ * We use shallow copies to apply forces and solve constraints without destroying the original rigid bodies.
+ * These shallow copies are initialzed in #PhysicsWorld::prepare.
+ */
+static void update_ridig_body_store(PhysicsRigidBodyStore *store) {
+	if (!store->shallow_copy) {
+		store->shallow_copy = new RigidBody();
+	}
+
+	store->shallow_copy->position = store->body->position;
+	store->shallow_copy->velocity = store->body->velocity;
+	store->shallow_copy->acceleration = store->body->acceleration;
+	store->shallow_copy->theta = store->body->theta;
+	store->shallow_copy->v_theta = store->body->v_theta;
+	store->shallow_copy->a_theta = store->body->a_theta;
+
+	store->shallow_copy->mass = store->body->mass;
+	store->shallow_copy->inertia = store->body->inertia;
+
+	store->force = float2(0.0f);
+	store->torque = 0.0f;
 }
 
 static PhysicsRigidBodyStore init_rigid_body_store(RigidBody *reference, ePhysicsWorld_Flag flag) {
 	PhysicsRigidBodyStore store;
 	store.body = reference;
+	store.shallow_copy = nullptr;
 	store.flag = flag;
 	return store;
 }
 
 /** Does not free the #PhysicsRigidBodyStore itself, returns true if the referenced pointer was freed too. */
 static bool free_rigid_body_store_data(PhysicsRigidBodyStore *store, bool handle_own_pointer = true) {
+	if (store->shallow_copy) {
+		delete store->shallow_copy;
+	}
+
 	if (handle_own_pointer) {
 		if ((store->flag & ePhysicsWorld_Flag::Owned) != ePhysicsWorld_Flag::None) {
 			delete store->body;
@@ -85,8 +110,7 @@ static bool free_force_generator_store_data(PhysicsForceGeneratorStore *store, b
 /** \name Physics World
  * \{ */
 
-PhysicsWorld::PhysicsWorld() {
-}
+PhysicsWorld::PhysicsWorld() = default;
 
 PhysicsWorld::~PhysicsWorld() {
 	for (std::vector<PhysicsRigidBodyStore>::iterator i = rigid_bodies.begin(); i != rigid_bodies.end(); i++) {
@@ -115,16 +139,45 @@ PhysicsWorld::~PhysicsWorld() {
 }
 
 void PhysicsWorld::process(float dt) {
-	for (accumulated += dt; accumulated >= delta_time; accumulated -= delta_time) {
+	for (accumulated += dt; accumulated >= PhysicsWorld::delta_time; accumulated -= PhysicsWorld::delta_time) {
+		update(PhysicsWorld::delta_time);
 		frame++;
+	}
+}
+
+void PhysicsWorld::update(float dt) {
+	/* No-op */
+}
+
+void PhysicsWorld::prepare() {
+	for (std::vector<PhysicsRigidBodyStore>::iterator i = rigid_bodies.begin(); i != rigid_bodies.end(); i++) {
+		PhysicsRigidBodyStore &store = *i;
+
+		/**
+		 * Update the shallow copies so that we can start computing the new frame.
+		 */
+		update_ridig_body_store(&store);
 	}
 }
 
 // RigidBody
 
 PhysicsRigidBodyStore *PhysicsWorld::add_rigid_body(RigidBody *body, ePhysicsWorld_Flag flag) {
+	assert(!has_rigid_body(body));
+
 	rigid_bodies.push_back(init_rigid_body_store(body, flag));
 	return &rigid_bodies[rigid_bodies.size() - 1];
+}
+
+PhysicsRigidBodyStore *PhysicsWorld::get_rigid_body_store(RigidBody *body) {
+	for (std::vector<PhysicsRigidBodyStore>::iterator i = rigid_bodies.begin(); i != rigid_bodies.end(); i++) {
+		if (i->body == body) {
+			PhysicsRigidBodyStore &store = *i;
+			return &store;
+		}
+	}
+
+	return NULL;
 }
 
 RigidBody *PhysicsWorld::remove_rigid_body(const RigidBody *body) {
@@ -175,6 +228,8 @@ bool PhysicsWorld::has_rigid_body(const RigidBody *body) {
 // Constraint
 
 PhysicsConstraintStore *PhysicsWorld::add_constraint(Constraint *constraint, ePhysicsWorld_Flag flag) {
+	assert(!has_constraint(constraint));
+
 	constraints.push_back(init_constraint_store(constraint, flag));
 	return &constraints[constraints.size() - 1];
 }
@@ -227,6 +282,8 @@ bool PhysicsWorld::has_constraint(const Constraint *constraint) {
 // ForceGenerators
 
 PhysicsForceGeneratorStore *PhysicsWorld::add_force_generator(ForceGenerator *force_generator, ePhysicsWorld_Flag flag) {
+	assert(!has_force_generator(force_generator));
+
 	force_generators.push_back(init_force_generator_store(force_generator, flag));
 	return &force_generators[force_generators.size() - 1];
 }
@@ -274,6 +331,41 @@ bool PhysicsWorld::has_force_generator(const ForceGenerator *force_generator) {
 		}
 	}
 	return false;
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Physics Store Utilities
+ * \{ */
+
+/** This function should only be called during evaluation. */
+float2 KER_physics_store_local_to_world(PhysicsRigidBodyStore *store, float2 local) {
+	assert(store->shallow_copy != nullptr);
+
+	RigidBody *erb = store->shallow_copy;
+
+	float2 p;
+	p.x = cosf(erb->theta) * local.x - sinf(erb->theta) * local.y + erb->position.x;
+	p.y = sinf(erb->theta) * local.x + cosf(erb->theta) * local.y + erb->position.y;
+	return p;
+}
+
+/** This function should only be called during evaluation. */
+void KER_physics_store_apply_force(PhysicsRigidBodyStore *store, float2 local, float2 force) {
+	float2 global = KER_physics_store_local_to_world(store, local);
+
+	store->force += force;
+	/**
+	 * TODO: move this calculation to revlib, this is the determinant of the following matrix;
+	 *
+	 * 	   [       \vec{x}             \vec{y}             \vec{z}      ]
+	 * M = [ global.x - local.x  global.y - local.y  global.z - local.z ]
+	 * 	   [      force.x              force.y             force.z      ]
+	 *
+	 * Since we are working on 2D this becomes (local.y - global.y) * force.x + (global.x - local.x) * force.y
+	 */
+	store->torque += (local.y - global.y) * force.x + (global.x - local.y) * force.y;
 }
 
 /** \} */

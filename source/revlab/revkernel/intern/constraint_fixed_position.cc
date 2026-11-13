@@ -2,7 +2,8 @@
 
 #include "KER_constraint_fixed_position.hh"
 
-FixedPositionConstraint::FixedPositionConstraint(RigidBody *body, float2 local, float2 global, float stiffness, float damping) : body(body) {
+FixedPositionConstraint::FixedPositionConstraint(RigidBody *body, float2 local, float2 global, float stiffness, float damping) : Constraint(1, 2) {
+	this->body[0] = body;
 	this->local = local;
 	this->global = global;
 	this->stiffness = stiffness;
@@ -28,7 +29,8 @@ void FixedPositionConstraint::apply(PhysicsWorld *world, float dt, ConstraintMat
 	float4 t = float4(this->global, 0.0f, 1.0f);
 
 	/** Transform the local position to global coordinates. */
-	c = body->matrix() * c;
+	c.x = cosf(body[0]->theta) * local.x - sinf(body[0]->theta) * local.y + body[0]->position.x;
+	c.x = sinf(body[0]->theta) * local.x + cosf(body[0]->theta) * local.y + body[0]->position.y;
 
 	/**
 	 * The constraint equation/function we are trying to solve here is the following;
@@ -40,19 +42,17 @@ void FixedPositionConstraint::apply(PhysicsWorld *world, float dt, ConstraintMat
 	 * Deriving each function we get the following Jacobian matrix.
 	 */
 
-	KER_constraint_output_none(r_output);
-
 	/* clang-format off */
 	r_output->J[0] = float3x3(
-		float3(1.0f, 0.0f, -sinf(body->theta) * local.x - cosf(body->theta) * local.y),
-		float3(0.0f, 1.0f, +cosf(body->theta) * local.x - sinf(body->theta) * local.y),
-		float3(0.0f, 0.0f, 														 0.0f)
+		float3(1.0f, 0.0f, -sinf(body[0]->theta) * local.x - cosf(body[0]->theta) * local.y),
+		float3(0.0f, 1.0f, +cosf(body[0]->theta) * local.x - sinf(body[0]->theta) * local.y),
+		float3(0.0f, 0.0f, 															   0.0f)
 	);
 	/** The derivative of the Jacobian matrix in respect to time, \dot{J} = \frac{dJ}{dt} = \frac{dJ}{d\theta} * \frac{d\theta}{dt} */
 	r_output->dJ[0] = float3x3(
-		float3(0.0f, 0.0f, -cosf(body->theta) * local.x + sinf(body->theta) * local.y) * body->v_theta,
-		float3(0.0f, 0.0f, -sinf(body->theta) * local.x - cosf(body->theta) * local.y) * body->v_theta,
-		float3(0.0f, 0.0f, 														 0.0f) * body->v_theta
+		float3(0.0f, 0.0f, -cosf(body[0]->theta) * local.x + sinf(body[0]->theta) * local.y) * body[0]->v_theta,
+		float3(0.0f, 0.0f, -sinf(body[0]->theta) * local.x - cosf(body[0]->theta) * local.y) * body[0]->v_theta,
+		float3(0.0f, 0.0f, 															   0.0f) * body[0]->v_theta
 	);
 	/* clang-format on */
 

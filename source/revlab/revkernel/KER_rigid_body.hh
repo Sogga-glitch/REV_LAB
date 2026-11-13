@@ -52,8 +52,6 @@ struct RigidBody {
 	 * the moment of inertia tells you how hard it is to twist or spin an object (T = Ia),
 	 */
 	float inertia = 1.0f;
-
-	float4x4 matrix() const;
 };
 
 /** \} */

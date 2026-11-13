@@ -13,7 +13,7 @@ struct FixedPositionConstraint;
 
 struct FixedPositionConstraint : public Constraint {
 	FixedPositionConstraint(RigidBody *body, float2 local, float2 global, float stiffness, float damping);
-	~FixedPositionConstraint() = default;
+	virtual ~FixedPositionConstraint();
 
 	void apply(PhysicsWorld *world, float dt, ConstraintMatrices *r_output);
 
@@ -21,8 +21,6 @@ struct FixedPositionConstraint : public Constraint {
 	float2 local;
 	float stiffness;
 	float damping;
-
-	RigidBody *body;
 };
 
 /** \} */

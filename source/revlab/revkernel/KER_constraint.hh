@@ -32,7 +32,14 @@ struct ConstraintMatrices {
 };
 
 struct Constraint {
+	Constraint(size_t bodies, size_t constraints);
+	virtual ~Constraint();
+
 	virtual void apply(PhysicsWorld *world, float dt, ConstraintMatrices *r_output) = 0;
+
+	RigidBody *body[ConstraintMatrices::max_constraint_body_count];
+	size_t bodies;
+	size_t constraints;
 };
 
 /** \} */

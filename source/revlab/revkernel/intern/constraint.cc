@@ -1,5 +1,14 @@
 #include "KER_constraint.hh"
 
+Constraint::Constraint(size_t bodies, size_t constraints) : bodies(bodies), constraints(constraints) {
+	for (size_t index = 0; index < sizeof(this->body) / sizeof(this->body[0]); index++) {
+		this->body[index] = nullptr;
+	}
+}
+
+Constraint::~Constraint() {
+}
+
 /* -------------------------------------------------------------------- */
 /** \name Constraint Common Utilities
  * \{ */

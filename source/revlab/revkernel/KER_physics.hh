@@ -1,5 +1,6 @@
 #pragma once
 
+#include "LIB_math_vector_types.hh"
 #include "LIB_utildefines.hh"
 
 #include <vector>
@@ -13,10 +14,24 @@ struct PhysicsWorld;
 /** \name Physics Structure/Type
  * \{ */
 
-enum class ePhysicsWorld_Flag;
+enum ePhysicsWorld_Flag {
+	None = 0,
+	/**
+	 * This object is directly owned by the #PhysicsWorld and should be freed upon removal.
+	 * \note Calling #PhysicsWorld::remove_* would return NULL and the object would be freed,
+	 * to override this functionality you should call the #PhysiscWorld::detach_* function instead.
+	 */
+	Owned = 1 << 0,
+};
+
+ENUM_OPERATORS(ePhysicsWorld_Flag, ePhysicsWorld_Flag::Owned);
 
 struct PhysicsRigidBodyStore {
 	RigidBody *body;
+	RigidBody *shallow_copy;
+
+	float2 force;
+	float torque;
 
 	ePhysicsWorld_Flag flag;
 };
@@ -31,19 +46,7 @@ struct PhysicsForceGeneratorStore {
 	ForceGenerator *force_generator;
 
 	ePhysicsWorld_Flag flag;
-}
-
-enum class ePhysicsWorld_Flag : int {
-	None = 0,
-	/**
-	 * This object is directly owned by the #PhysicsWorld and should be freed upon removal.
-	 * \note Calling #PhysicsWorld::remove_* would return NULL and the object would be freed,
-	 * to override this functionality you should call the #PhysiscWorld::detach_* function instead.
-	 */
-	Owned = 1 << 0,
 };
-
-ENUM_OPERATORS(ePhysicsWorld_Flag, ePhysicsWorld_Flag::Owned);
 
 struct PhysicsWorld {
 	PhysicsWorld();
@@ -57,8 +60,13 @@ struct PhysicsWorld {
 	 * \param dt The delta time to process this world with.
 	 */
 	void process(float dt);
+	void prepare();
+
+	virtual void update(float dt);
 
 	PhysicsRigidBodyStore *add_rigid_body(RigidBody *body, ePhysicsWorld_Flag flag = ePhysicsWorld_Flag::None);
+	/** Used to update the sate of the rigid body between frames. */
+	PhysicsRigidBodyStore *get_rigid_body_store(RigidBody *body);
 	/**
 	 * This function might return NULL if the specified body does not exist within this #PhysicsWorld or
 	 * if the ePhysicsWorld_Flag::Owned was specified, in which case the #RigidBody is also freed.
@@ -98,14 +106,26 @@ struct PhysicsWorld {
 	/**
 	 * The current frame of the simulation, used to compute delta time.
 	 */
-	int frame;
+	int frame = 0;
 	/**
 	 * Accumulated time since the last frame was incremented (used by #process).
 	 * This value is measured in (s) seconds.
 	 */
-	float accumulated;
+	float accumulated = 0.0f;
 
-	static constexpr float delta_time = 1.0f / 60.0f;
+	/** 240hz is 14400 updates per minut, this value can produce nice results for high RPM values. */
+	static constexpr float delta_time = 1.0f / 240.0f;
 };
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Physics Store Utilities
+ * \{ */
+
+/** TODO: make this function private. */
+float2 KER_physics_store_local_to_world(PhysicsRigidBodyStore *store, float2 local);
+/** TODO: make this function private. */
+void KER_physics_store_apply_force(PhysicsRigidBodyStore *store, float2 position, float2 force);
 
 /** \} */
