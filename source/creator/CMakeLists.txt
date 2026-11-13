@@ -32,6 +32,8 @@ set(SRC
 
 set(LIB
 	# Internal Library Dependencies
+	revlab::source::revlib
+	revlab::source::revkernel
 
 	# External Library Dependencies
 	${GLFW_LIBRARIES}

@@ -97,7 +97,7 @@ detect_endianess()
 # -----------------------------------------------------------------------------
 # Add Sub-Directories
 
-# add_subdirectory(extern)
-# add_subdirectory(intern)
+add_subdirectory(extern)
+add_subdirectory(intern)
 add_subdirectory(source)
 # add_subdirectory(resources)
